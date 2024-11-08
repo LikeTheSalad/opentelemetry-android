@@ -10,18 +10,14 @@ import android.app.Application
 import android.util.Log
 import io.opentelemetry.android.OpenTelemetryRum
 import io.opentelemetry.android.OpenTelemetryRumBuilder
-import io.opentelemetry.android.agent.setSlowRenderingDetectionPollInterval
 import io.opentelemetry.android.config.OtelRumConfig
+import io.opentelemetry.android.demo.globalattrs.GlobalAttributeSupplierImpl
 import io.opentelemetry.android.features.diskbuffering.DiskBufferingConfiguration
-import io.opentelemetry.api.common.AttributeKey.stringKey
-import io.opentelemetry.api.common.Attributes
 import io.opentelemetry.api.incubator.events.EventBuilder
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter
 import io.opentelemetry.sdk.logs.internal.SdkEventLoggerProvider
-import java.time.Duration
-import kotlin.math.log
 
 const val TAG = "otel.demo"
 
@@ -36,12 +32,16 @@ class OtelDemoApplication : Application() {
                 .setEnabled(true)
                 .setMaxCacheSize(10_000_000)
                 .build()
+        globalAttrs = GlobalAttributeSupplierImpl()
+        globalAttrs.createInitialAttributesWithKey(listOf("dynamic_property"))
         val config =
             OtelRumConfig()
-                .setGlobalAttributes(Attributes.of(stringKey("toolkit"), "jetpack compose"))
+                .setGlobalAttributes(globalAttrs)
                 .setDiskBufferingConfiguration(diskBufferingConfig)
 
         // 10.0.2.2 is apparently a special binding to the host running the emulator
+
+        // TODO replace with your vendor's endpoints:
         val spansIngestUrl = "http://10.0.2.2:4318/v1/traces"
         val logsIngestUrl = "http://10.0.2.2:4318/v1/logs"
         val otelRumBuilder: OpenTelemetryRumBuilder =
@@ -49,11 +49,13 @@ class OtelDemoApplication : Application() {
                 .addSpanExporterCustomizer {
                     OtlpHttpSpanExporter.builder()
                         .setEndpoint(spansIngestUrl)
+//                        .addHeader("Authorization", "Bearer ...") //todo uncomment if your endpoints need to provide this header.
                         .build()
                 }
                 .addLogRecordExporterCustomizer {
                     OtlpHttpLogRecordExporter.builder()
                         .setEndpoint(logsIngestUrl)
+//                        .addHeader("Authorization", "Bearer ...") //todo uncomment if your endpoints need to provide this header.
                         .build()
                 }
         try {
@@ -66,6 +68,7 @@ class OtelDemoApplication : Application() {
 
     companion object {
         var rum: OpenTelemetryRum? = null
+        lateinit var globalAttrs: GlobalAttributeSupplierImpl
 
         fun tracer(name: String): Tracer? {
             return rum?.openTelemetry?.tracerProvider?.get(name)

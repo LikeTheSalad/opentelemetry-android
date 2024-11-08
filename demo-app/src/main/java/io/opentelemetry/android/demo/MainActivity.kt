@@ -5,9 +5,9 @@
 
 package io.opentelemetry.android.demo
 
-import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -28,12 +28,11 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.opentelemetry.android.demo.about.AboutActivity
 import io.opentelemetry.android.demo.theme.DemoAppTheme
-import io.opentelemetry.android.demo.shop.ui.AstronomyShopActivity
 
 class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<DemoViewModel>()
+    private var attrChanges = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,18 +54,18 @@ class MainActivity : ComponentActivity() {
                             CenterText(
                                 fontSize = 40.sp,
                                 text =
-                                    buildAnnotatedString {
-                                        withStyle(style = SpanStyle(color = Color(0xFFF5A800))) {
-                                            append("Open")
-                                        }
-                                        withStyle(style = SpanStyle(color = Color(0xFF425CC7))) {
-                                            append("Telemetry")
-                                        }
-                                        withStyle(style = SpanStyle(color = Color.Black)) {
-                                            append(" Android Demo")
-                                        }
-                                        toAnnotatedString()
-                                    },
+                                buildAnnotatedString {
+                                    withStyle(style = SpanStyle(color = Color(0xFFF5A800))) {
+                                        append("Open")
+                                    }
+                                    withStyle(style = SpanStyle(color = Color(0xFF425CC7))) {
+                                        append("Telemetry")
+                                    }
+                                    withStyle(style = SpanStyle(color = Color.Black)) {
+                                        append(" Android Demo")
+                                    }
+                                    toAnnotatedString()
+                                },
                             )
                         }
                         SessionId(viewModel.sessionIdState)
@@ -74,11 +73,16 @@ class MainActivity : ComponentActivity() {
                             painterResource(id = R.drawable.otel_icon),
                         )
                         val context = LocalContext.current
-                        LauncherButton(text = "Go shopping", onClick = {
-                            context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
+                        LauncherButton(text = "Send span", onClick = {
+//                            context.startActivity(Intent(this@MainActivity, AstronomyShopActivity::class.java))
+                            sendSpan()
                         })
-                        LauncherButton(text = "Learn more", onClick = {
-                            context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                        LauncherButton(text = "Send log", onClick = {
+//                            context.startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                            sendLog()
+                        })
+                        LauncherButton(text = "Update global attrs", onClick = {
+                            updateAttr()
                         })
 
                     }
@@ -87,5 +91,22 @@ class MainActivity : ComponentActivity() {
             }
         }
         viewModel.sessionIdState.value = OtelDemoApplication.rum?.rumSessionId!!
+    }
+
+    private fun sendLog() {
+        OtelDemoApplication.rum!!.openTelemetry.logsBridge.get("myLogger").logRecordBuilder()
+            .setBody("A log body").emit()
+    }
+
+    private fun sendSpan() {
+        OtelDemoApplication.tracer("myTracer")!!.spanBuilder("A Span name").startSpan().end()
+    }
+
+    private fun updateAttr() {
+        OtelDemoApplication.globalAttrs.update(
+            "dynamic_property",
+            "Has changed ${(++attrChanges)} time(s)"
+        )
+        Toast.makeText(this, "Updated global attrs", Toast.LENGTH_SHORT).show()
     }
 }
