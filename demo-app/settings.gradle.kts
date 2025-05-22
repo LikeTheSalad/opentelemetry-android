@@ -24,7 +24,11 @@ includeBuild("..") {
     dependencySubstitution {
         substitute(module("io.opentelemetry.android:android-agent"))
             .using(project(":android-agent"))
-        substitute(module("io.opentelemetry.android:instrumentation-sessions"))
+        substitute(module("io.opentelemetry.android.instrumentation:sessions"))
             .using(project(":instrumentation:sessions"))
+        substitute(module("io.opentelemetry.android.instrumentation:okhttp3-library"))
+            .using(project(":instrumentation:okhttp3:library"))
+        substitute(module("io.opentelemetry.android.instrumentation:okhttp3-agent"))
+            .using(project(":instrumentation:okhttp3:agent"))
     }
 }

@@ -5,6 +5,7 @@ plugins {
     alias(rootLibs.plugins.androidApp)
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.compose.compiler)
+    id("net.bytebuddy.byte-buddy-gradle-plugin") version "1.17.5"
 }
 
 val localProperties = Properties()
@@ -66,8 +67,10 @@ dependencies {
 
     coreLibraryDesugaring(libs.desugarJdkLibs)
 
-    implementation("io.opentelemetry.android:android-agent")    //parent dir
-    implementation("io.opentelemetry.android:instrumentation-sessions")
+    implementation("io.opentelemetry.android:android-agent")
+    implementation("io.opentelemetry.android.instrumentation:sessions")
+    implementation("io.opentelemetry.android.instrumentation:okhttp3-library")
+    byteBuddy("io.opentelemetry.android.instrumentation:okhttp3-agent")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
