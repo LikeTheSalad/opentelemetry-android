@@ -5,17 +5,6 @@ import java.net.http.HttpResponse
 import java.security.MessageDigest
 import java.time.Duration
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        // Only used to strip the outer XZ layer off weaver's release archives before handing
-        // the resulting plain tar to Gradle's own tarTree()/FileSystemOperations for extraction.
-        classpath(libs.tukaani.xz)
-    }
-}
-
 plugins {
     id("otel.android-library-conventions")
     id("otel.publish-conventions")
@@ -102,6 +91,7 @@ abstract class DownloadWeaverTask
     @Inject
     constructor(
         private val archiveOps: ArchiveOperations,
+        private val execOps: ExecOperations,
         private val fileOps: FileSystemOperations,
     ) : DefaultTask() {
         @get:Input
@@ -137,19 +127,21 @@ abstract class DownloadWeaverTask
             verifyChecksum(archiveFile, checksumFile)
 
             val entryName = outputFile.name
-            val tarFile = File(workDir, "weaver.tar")
-            val tree =
-                if (isZip) {
-                    archiveOps.zipTree(archiveFile)
-                } else {
-                    decompressXz(archiveFile, tarFile)
-                    archiveOps.tarTree(tarFile)
-                }
+            val tarExtractDir = File(workDir, "weaver-tar")
+            if (!isZip) {
+                decompressXz(archiveFile, tarExtractDir)
+            }
 
             // Release archives nest the binary under a top-level "weaver-<triple>/" directory;
             // flatten it since we only want the single executable, at a known path.
             fileOps.copy {
-                from(tree.matching { include("**/$entryName") })
+                if (isZip) {
+                    from(archiveOps.zipTree(archiveFile).matching { include("**/$entryName") })
+                } else {
+                    from(tarExtractDir) {
+                        include("**/$entryName")
+                    }
+                }
                 into(workDir)
                 eachFile { relativePath = RelativePath(true, entryName) }
                 includeEmptyDirs = false
@@ -164,7 +156,24 @@ abstract class DownloadWeaverTask
 
             archiveFile.delete()
             checksumFile.delete()
-            tarFile.delete()
+            tarExtractDir.deleteRecursively()
+        }
+
+        private fun decompressXz(
+            archiveFile: File,
+            destinationDir: File,
+        ) {
+            destinationDir.deleteRecursively()
+            destinationDir.mkdirs()
+            execOps.exec {
+                commandLine(
+                    "tar",
+                    "-xf",
+                    archiveFile.absolutePath,
+                    "-C",
+                    destinationDir.absolutePath,
+                )
+            }
         }
 
         private fun download(
@@ -210,15 +219,6 @@ abstract class DownloadWeaverTask
             val actual = digest.digest().joinToString("") { "%02x".format(it) }
             check(actual == expected) {
                 "Checksum mismatch for ${archiveFile.name}: expected $expected but got $actual"
-            }
-        }
-
-        private fun decompressXz(
-            source: File,
-            destination: File,
-        ) {
-            org.tukaani.xz.XZInputStream(source.inputStream().buffered()).use { input ->
-                destination.outputStream().use { output -> input.copyTo(output) }
             }
         }
     }
